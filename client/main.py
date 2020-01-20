@@ -60,6 +60,7 @@ class MyClientProtocol(WebSocketClientProtocol):
         jsonMsg['iv_sig'] = self.sigGen(jsonMsg['iv'])
         return json.dumps(jsonMsg)
 
+
     def onConnect(self, response):
         print("Server connected: {0}".format(response.peer))
 
@@ -73,10 +74,13 @@ class MyClientProtocol(WebSocketClientProtocol):
         self.sendMessage(json.dumps(jsonMsg).encode('utf8'))
 
     async def onOpen(self):
-        self.auth_state = 0
+        self.auth_state = 1
         self.publickey = RSA.import_key(open('id.pub', 'rb').read())
         self.privatekey = RSA.import_key(open('my_key', 'rb').read())
         self.ToSendRSAPub()
+        name = await loop.run_in_executor(None, input)
+        self.sendMessage(self.ToSend(name).encode('utf8'))
+        self.auth_state = 0
         print("WebSocket connection open.")
         while True:
             msg = await loop.run_in_executor(None, input)
@@ -88,10 +92,11 @@ class MyClientProtocol(WebSocketClientProtocol):
         else:
             payload = json.loads(payload.decode('utf8'))
             if self.auth_state == 0:
-                if self.sigVeryfy(payload['AES_key'], payload['AES_key_sig']) and self.sigVeryfy(payload['iv'], payload['iv_sig']) and self.sigVeryfy(payload['msg'], payload['msg_sig']):
+                if self.sigVeryfy(payload['AES_key'], payload['AES_key_sig']) and self.sigVeryfy(payload['iv'], payload['iv_sig']) and self.sigVeryfy(payload['msg'], payload['msg_sig']) and self.sigVeryfy(payload['name'], payload['name_sig']):
                     msg = self.msgDecAES(payload['msg'], payload['AES_key'], payload['iv'])
+                    name = self.msgDecAES(payload['name'], payload['AES_key'], payload['iv'])
                     payload = {}
-                    print("Text message received: {0}".format(msg))
+                    print("{}: {}".format(name, msg))
                 else:
                     print('err')
 

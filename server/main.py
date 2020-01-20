@@ -20,10 +20,9 @@ class MyServerProtocol(WebSocketServerProtocol):
     clients = []
 
     def sendAll(self, msg):
-        msg = self.ToSend(msg).encode('utf8')
         if len(MyServerProtocol.clients):
             for i in MyServerProtocol.clients:
-                i.sendMessage(msg)
+                i.sendMessage(i.ToSendWithName(msg, self.name).encode('utf8'))
 
     def sigGen(self, payload):
         myhash = SHA.new(payload.encode('utf8'))
@@ -71,6 +70,20 @@ class MyServerProtocol(WebSocketServerProtocol):
         jsonMsg['iv_sig'] = self.sigGen(jsonMsg['iv'])
         return json.dumps(jsonMsg)
 
+    def ToSendWithName(self, msg, name):
+        jsonMsg = dict()
+        AES_key = Random.new().read(32)
+        iv = Random.new().read(16)
+        jsonMsg['msg'] = self.msgEncAES(msg, AES_key, iv)
+        jsonMsg['msg_sig'] = self.sigGen(jsonMsg['msg'])
+        jsonMsg['AES_key'] = self.rsaEnc(AES_key)
+        jsonMsg['AES_key_sig'] = self.sigGen(jsonMsg['AES_key'])
+        jsonMsg['iv'] = self.rsaEnc(iv)
+        jsonMsg['iv_sig'] = self.sigGen(jsonMsg['iv'])
+        jsonMsg['name'] = self.msgEncAES(name, AES_key, iv)
+        jsonMsg['name_sig'] = self.sigGen(jsonMsg['name'])
+        return json.dumps(jsonMsg)
+
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
 
@@ -89,7 +102,7 @@ class MyServerProtocol(WebSocketServerProtocol):
                 if self.sigVeryfy(payload['AES_key'], payload['AES_key_sig']) and self.sigVeryfy(payload['iv'], payload['iv_sig']) and self.sigVeryfy(payload['msg'], payload['msg_sig']):
                     msg = self.msgDecAES(payload['msg'], payload['AES_key'], payload['iv'])
                     payload = {}
-                    print("Text message received: {0}".format(msg))
+                    print("{}: {}".format(self.name, msg))
                     self.sendAll(msg)
                 else:
                     print('err')
@@ -98,9 +111,15 @@ class MyServerProtocol(WebSocketServerProtocol):
                     self.publickey = RSA.import_key(payload['pub'])
                     if self.sigVeryfy(payload['pub'], payload['sig']):
                         print('all ok')
-                        self.auth_state = 0
+                        self.auth_state = 2
                     else:
                         print('err')
+            elif self.auth_state == 2:
+                if self.sigVeryfy(payload['AES_key'], payload['AES_key_sig']) and self.sigVeryfy(payload['iv'], payload['iv_sig']) and self.sigVeryfy(payload['msg'], payload['msg_sig']):
+                    self.name = self.msgDecAES(payload['msg'], payload['AES_key'], payload['iv'])
+                    self.auth_state = 0
+                else:
+                    print('err')
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
