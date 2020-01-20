@@ -60,10 +60,6 @@ class MyClientProtocol(WebSocketClientProtocol):
         jsonMsg['iv_sig'] = self.sigGen(jsonMsg['iv'])
         return json.dumps(jsonMsg)
 
-
-    def onConnect(self, response):
-        print("Server connected: {0}".format(response.peer))
-
     def ToSendAuth(self):
         pass #In next versions По хешу от публичного ключа, на сервере поиск в бд
 
@@ -73,12 +69,15 @@ class MyClientProtocol(WebSocketClientProtocol):
         jsonMsg['sig'] = self.sigGen(jsonMsg['pub'])
         self.sendMessage(json.dumps(jsonMsg).encode('utf8'))
 
+    def onConnect(self, response):
+        print("Server connected: {0}".format(response.peer))
+
     async def onOpen(self):
         self.auth_state = 1
         self.publickey = RSA.import_key(open('id.pub', 'rb').read())
         self.privatekey = RSA.import_key(open('my_key', 'rb').read())
         self.ToSendRSAPub()
-        name = await loop.run_in_executor(None, input)
+        name = await loop.run_in_executor(None, input, 'Name: ')
         self.sendMessage(self.ToSend(name).encode('utf8'))
         self.auth_state = 0
         print("WebSocket connection open.")
@@ -106,6 +105,7 @@ class MyClientProtocol(WebSocketClientProtocol):
 
 
 if __name__ == '__main__':
+
     if not(os.path.exists('my_key') and os.path.exists('my_key.pub')):
         print('RSA keys generating')
         privatekey = RSA.generate(8192)

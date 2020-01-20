@@ -1,12 +1,9 @@
-import Crypto
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Cipher import AES
 from Crypto import Random
-import socket
-import select
 import os.path
 import json
 import base64
@@ -127,6 +124,18 @@ class MyServerProtocol(WebSocketServerProtocol):
 
 
 if __name__ == '__main__':
+
+    if not(os.path.exists('id') and os.path.exists('id.pub')):
+        print('RSA keys generating')
+        privatekey = RSA.generate(8192)
+        f = open('id', 'wb')
+        f.write(bytes(privatekey.exportKey('PEM')))
+        f.close()
+        publickey = privatekey.publickey()
+        f = open('id.pub', 'wb')
+        f.write(bytes(publickey.export_key('PEM')))
+        f.close()
+
     factory = WebSocketServerFactory("ws://127.0.0.1:9090")
     factory.protocol = MyServerProtocol
 
