@@ -23,7 +23,7 @@ class MyClientProtocol(WebSocketClientProtocol):
         sig = sig + chiperrsa.encrypt(signature[128:])
         return base64.b64encode(sig).decode('utf8')
 
-    def sigVeryfy(self, payload, sig):
+    def sigVerify(self, payload, sig):
         sig = base64.b64decode(sig.encode('utf8'))
         myhash = SHA.new(payload.encode('utf8'))
         signature = PKCS1_v1_5.new(self.publickey)
@@ -91,7 +91,7 @@ class MyClientProtocol(WebSocketClientProtocol):
         else:
             payload = json.loads(payload.decode('utf8'))
             if self.auth_state == 0:
-                if self.sigVeryfy(payload['AES_key'], payload['AES_key_sig']) and self.sigVeryfy(payload['iv'], payload['iv_sig']) and self.sigVeryfy(payload['msg'], payload['msg_sig']) and self.sigVeryfy(payload['name'], payload['name_sig']):
+                if self.sigVerify(payload['AES_key'], payload['AES_key_sig']) and self.sigVerify(payload['iv'], payload['iv_sig']) and self.sigVerify(payload['msg'], payload['msg_sig']) and self.sigVerify(payload['name'], payload['name_sig']):
                     msg = self.msgDecAES(payload['msg'], payload['AES_key'], payload['iv'])
                     name = self.msgDecAES(payload['name'], payload['AES_key'], payload['iv'])
                     payload = {}
